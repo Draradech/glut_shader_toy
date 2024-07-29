@@ -1,9 +1,9 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdint.h>
 #include <time.h>
 
 #include <GL/glew.h>
-#include <GL/wglew.h>
 #include <GL/freeglut.h>
 
 static char *vs = ""
@@ -30,7 +30,9 @@ static char *fs_header = ""
 "void main(){mainImage(glut_shader_toy_out_color, gl_FragCoord.xy);}     \n";
 
 #ifdef _WIN32
+#include <GL/wglew.h>
 #include <windows.h>
+#define glSwapInterval wglSwapIntervalEXT
 static int usDiv = 0;
 static int64_t micros()
 {
@@ -79,17 +81,25 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 }
 #else
 #include <sys/time.h>
+#include <GL/glxew.h>
+void glSwapInterval(int interval)
+{
+    Display *dpy = glXGetCurrentDisplay();
+    GLXDrawable drawable = glXGetCurrentDrawable();
+    glXSwapIntervalEXT(dpy, drawable, interval);
+}
+
 int64_t micros()
 {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-    return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000;
+    return (int64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
 }
 #endif
 
 static int width = 960;
 static int height = 540;
-static float fpsTarget = 60.;
+static float fpsTarget = 1000.;
 static int vsync = 1;
 static int cw = 0;
 static int ch = 0;
@@ -338,7 +348,7 @@ static void addShader(GLuint shaderProgram, char* pShaderText, GLenum shaderType
         exit(0);
     }
 
-    GLchar* p[1];
+    const GLchar* p[1];
     p[0] = pShaderText;
 
     GLint l[1];
@@ -451,12 +461,12 @@ void compileShaders(char *folderName)
             strcat(fs, common);
             int cnt = fread(fs + fs_header_l + common_l, 1, MAX - fs_header_l - common_l - 1, f);
             fs[fs_header_l + common_l + cnt] = 0;
-            fclose(f);
             compileShader(i, vs, fs);
             fclose(f);
         }
     }
     
+    free(common);
     free(fname);
     free(fs);
     
@@ -489,7 +499,7 @@ int main(int argc, char* argv[])
     
     glDisable(GL_DEPTH_TEST);
     
-    wglSwapIntervalEXT(-vsync);
+    glSwapInterval(-vsync);
     
     float verts[6][3] = {{-1,-1,0},{1,1,0},{-1,1,0},{-1,-1,0},{1,1,0},{1,-1,0}};
 
