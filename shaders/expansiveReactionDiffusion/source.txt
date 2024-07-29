@@ -1,0 +1,5 @@
+original:
+https://www.shadertoy.com/view/4dcGW2
+
+fork with adaptations for compatibility:
+https://www.shadertoy.com/view/4c2yDh
