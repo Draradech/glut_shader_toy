@@ -536,15 +536,3 @@ int main(int argc, char* argv[])
 
     return 0;
 }
-
-
-/*
-next steps:
-- cleanup
-- mouse support
-- iDate
-- test more shaders
-- git
-- test linux
-
-*/
