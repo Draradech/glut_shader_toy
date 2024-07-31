@@ -58,6 +58,19 @@ static int64_t micros()
     return time / usDiv;
 }
 
+void usleep(unsigned int usec)
+{
+	HANDLE timer;
+	LARGE_INTEGER ft;
+
+	ft.QuadPart = -(10 * (__int64)usec);
+
+	timer = CreateWaitableTimer(NULL, TRUE, NULL);
+	SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+	WaitForSingleObject(timer, INFINITE);
+	CloseHandle(timer);
+}
+
 // MSVC defines this in winsock2.h!?
 typedef struct timeval {
     time_t tv_sec;
@@ -85,6 +98,7 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
     return 0;
 }
 #else
+#include <unistd.h> // usleep
 #include <sys/time.h>
 #include <GL/glxew.h>
 void glSwapInterval(int interval)
@@ -215,7 +229,22 @@ static void idle(void)
     static int64_t timeLast = 0;
     int64_t time = micros();
     if(timeLast == 0) timeLast = time;
-    if(time - timeLast >= 1e6 / fpsTarget && !pause)
+    
+    if (pause)
+    {
+        // timeNext is undefined, sleep for 10ms and return
+        usleep(10000);
+        return;
+    }
+
+    int64_t timeNext = timeLast + 1e6 / fpsTarget;
+    while (timeNext - time > 1000)
+    {
+        usleep(timeNext - time - 1000);
+        time = micros();
+    }
+
+    if(time >= timeNext)
     {
         glutPostRedisplay();
         timeLast = time;
@@ -268,7 +297,6 @@ static void draw(void)
 
     glutSwapBuffers();
 
-    printf("Frame %d\n", iFrame);
     iFrame++;
     if (iMouse[3] > 0) iMouse[3] = -iMouse[3];
     
