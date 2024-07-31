@@ -54,7 +54,7 @@ static int64_t micros()
         usDiv = freq / 1000000;
     }
     QueryPerformanceCounter((LARGE_INTEGER*)&time);
-    
+
     return time / usDiv;
 }
 
@@ -81,7 +81,7 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 {
     // Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
     // This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
-    // until 00:00:00 January 1, 1970 
+    // until 00:00:00 January 1, 1970
     static const uint64_t EPOCH = ((uint64_t) 116444736000000000ULL);
 
     SYSTEMTIME  system_time;
@@ -122,7 +122,7 @@ static int fpsTarget = 1000;
 static int vsync = 1;
 static int gui = 1;
 static int fs = 0;
-static int pause = 0;
+static int pauseDraw = 0;
 static int cw = 0;
 static int ch = 0;
 static GLuint vao, vbo, fbo;
@@ -153,7 +153,7 @@ static void calcFps(int64_t time)
 
     iTimeDelta = timeLast == 0 ? 0 : 1e-6 * (time - timeLast);
     if (pauseOld) iTimeRef += (time - timeLast);
-    pauseOld = pause;
+    pauseOld = pauseDraw;
     timeLast = time;
 
     if(timeOld == 0) {timeOld = time; frameCounter = 0;}
@@ -229,8 +229,8 @@ static void idle(void)
     static int64_t timeLast = 0;
     int64_t time = micros();
     if(timeLast == 0) timeLast = time;
-    
-    if (pause)
+
+    if (pauseDraw)
     {
         // timeNext is undefined, sleep for 10ms and return
         usleep(10000);
@@ -254,7 +254,7 @@ static void idle(void)
 static void draw(void)
 {
     updateUniforms();
-    
+
     glDisable(GL_BLEND);
     glBindVertexArray(vao);
     for (int i = 1; i < 5; i++)
@@ -299,7 +299,6 @@ static void draw(void)
 
     iFrame++;
     if (iMouse[3] > 0) iMouse[3] = -iMouse[3];
-    
 }
 
 static void clearTexture(GLuint tex)
@@ -332,7 +331,7 @@ static void createTextures(int ti)
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     clearTexture(texture[ti][1]);
 }
 
@@ -366,7 +365,7 @@ static void key(unsigned char key, int x, int y)
             gui = !gui;
             break;
         case 'p':
-            pause = !pause;
+            pauseDraw = !pauseDraw;
             break;
         case 's':
             glutPostRedisplay();
@@ -391,6 +390,7 @@ static void key(unsigned char key, int x, int y)
             fpsTarget += 10;
             break;
     }
+    fpsTarget = fpsTarget < 10 ? 10 : fpsTarget;
 }
 
 static void mouse(int button, int state, int x, int y)
@@ -407,7 +407,7 @@ static void mouse(int button, int state, int x, int y)
         else
         {
             iMouse[2] = -iMouse[2];
-        }   
+        }
     }
 }
 
@@ -426,7 +426,7 @@ static void reshape(int w, int h)
     iResolution[2] = 1.;
     glViewport(0, 0, w, h);
     gltViewport(w, h);
-    
+
     for (int i = 0; i < 5; i++)
     {
         if (shader[i])
@@ -513,7 +513,7 @@ static char *cname = "/common.glsl";
 void compileShaders(char *folderName)
 {
     fname = malloc(255);
-    
+
     int fs_header_l = strlen(fs_header);
 
     fname[0] = 0;
@@ -546,7 +546,7 @@ void compileShaders(char *folderName)
     fstext[fs_header_l + common_l + cnt] = 0;
     fclose(f);
     compileShader(0, vs, fstext);
-    
+
     for (int i = 1; i < 5; i++)
     {
         fname[0] = 0;
@@ -564,11 +564,11 @@ void compileShaders(char *folderName)
             fclose(f);
         }
     }
-    
+
     free(common);
     free(fname);
     free(fstext);
-    
+
     printf("\nShaders loaded.\n%s:   %s\n%s:    Y\n%s: %s\n%s: %s\n%s: %s\n%s: %s\n\n", cname, common_l?"Y":"N", names[0], names[1], shader[1]?"Y":"N", names[2], shader[2]?"Y":"N", names[3], shader[3]?"Y":"N", names[4], shader[4]?"Y":"N");
 }
 
@@ -586,7 +586,7 @@ int main(int argc, char* argv[])
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
     glutInitWindowSize(width, height);
     glutCreateWindow("GLUT Shader Toy");
-    
+
     GLenum res = glewInit();
     if (res != GLEW_OK)
     {
@@ -596,12 +596,12 @@ int main(int argc, char* argv[])
 
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(messageCallback, 0);
-    
+
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
+
     glSwapInterval(-vsync);
-    
+
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
