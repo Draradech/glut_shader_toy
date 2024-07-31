@@ -255,7 +255,6 @@ static void draw(void)
 {
     updateUniforms();
 
-    glDisable(GL_BLEND);
     glBindVertexArray(vao);
     for (int i = 1; i < 5; i++)
     {
@@ -293,6 +292,7 @@ static void draw(void)
         gltDrawText2D(glControlText, 10, 10, 1);
         gltDrawText2D(glFpsText, 10, 30, 1);
         gltEndDraw();
+        glDisable(GL_BLEND);
     }
 
     glutSwapBuffers();
@@ -427,6 +427,9 @@ static void reshape(int w, int h)
     glViewport(0, 0, w, h);
     gltViewport(w, h);
 
+    // we don't actually need our vertices here, but we want to set uniforms, so we need glUseProgram
+    // nvidia recompiles on glUseProgram if vao state is different, which we want to avoid
+    glBindVertexArray(vao);
     for (int i = 0; i < 5; i++)
     {
         if (shader[i])
@@ -597,7 +600,6 @@ int main(int argc, char* argv[])
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(messageCallback, 0);
 
-    glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glSwapInterval(-vsync);
