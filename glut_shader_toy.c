@@ -6,6 +6,11 @@
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 
+#define GLT_MANUAL_VIEWPORT
+#define GLT_HACK_MONOSPACE
+#define GLT_IMPLEMENTATION
+#include "gltext.h"
+
 static char *vs = ""
 "#version 330 core                                                       \n"
 "layout(location = 0) in vec3 p;                                         \n"
@@ -99,8 +104,11 @@ int64_t micros()
 
 static int width = 960;
 static int height = 540;
-static float fpsTarget = 1000.;
+static int fpsTarget = 1000;
 static int vsync = 1;
+static int gui = 1;
+static int fs = 0;
+static int pause = 0;
 static int cw = 0;
 static int ch = 0;
 static GLuint vao, vbo, fbo;
@@ -112,33 +120,51 @@ static int iFrame;
 static int64_t iTimeRef;
 static float iTime, iTimeDelta, iFrameRate, iResolution[3], iMouse[4], iDate[4];
 
+GLTtext *glStatusText;
+char stStatusText[200];
+
+GLTtext *glControlText;
+char *stControlText = "(Esc)Exit  (F)ullscreen  (R)eset  (G)UI  (V)Sync  (P)ause  (S)ingleFrame";
+
+GLTtext *glFpsText;
+char stFpsText[200];
+
 static void calcFps(int64_t time)
 {
-   static int64_t timeOld, timeLast;
-   static int frameCounter;
-   
-   frameCounter++;
-   
-   iTimeDelta = timeLast == 0 ? 0 : 1e-6 * (time - timeLast);
-   timeLast = time;
-   
-   if(timeOld == 0) {timeOld = time; frameCounter = 0;}
-   if(time > timeOld + 100000) // 100ms
-   {
-      iFrameRate = frameCounter * 1000000.0 / (time - timeOld);
-      frameCounter = 0;
-      timeOld = time;
-      printf("%.1f    %.1f fps    %d x %d\n", iTime, iFrameRate, cw, ch);
-      //printf("%f %f %f %f\n", iMouse[0], iMouse[1], iMouse[2], iMouse[3]);
-   }
+    static int64_t timeOld, timeLast;
+    static int frameCounter;
+    static int pauseOld;
+
+    frameCounter++;
+
+    iTimeDelta = timeLast == 0 ? 0 : 1e-6 * (time - timeLast);
+    if (pauseOld) iTimeRef += (time - timeLast);
+    pauseOld = pause;
+    timeLast = time;
+
+    if(timeOld == 0) {timeOld = time; frameCounter = 0;}
+    if(time > timeOld + 100000) // 100ms
+    {
+        iFrameRate = frameCounter * 1000000.0 / (time - timeOld);
+        frameCounter = 0;
+        timeOld = time;
+        if (gui)
+        {
+            sprintf(stStatusText, "%.1f    %.1f fps    %d x %d", iTime, iFrameRate, cw, ch);
+            gltSetText(glStatusText, stStatusText);
+
+            sprintf(stFpsText, "Target FPS: %d, %s   Controls: (4) -10  (5) -1  (6) 60  (7) +1  (8) +10", fpsTarget, vsync?"vsync":"no vsync");
+            gltSetText(glFpsText, stFpsText);
+        }
+    }
 }
 
 static void updateUniforms()
 {
     int64_t now = micros();
+    calcFps(now); // iFrameRate, iTimeDelta
     iTime = iFrame == 0 ? 0 : 1e-6 * (now - iTimeRef);
     if (iFrame == 0) iTimeRef = now;
-    calcFps(now); // iFrameRate, iTimeDelta
 
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -189,7 +215,7 @@ static void idle(void)
     static int64_t timeLast = 0;
     int64_t time = micros();
     if(timeLast == 0) timeLast = time;
-    if(time - timeLast >= 1e6 / fpsTarget)
+    if(time - timeLast >= 1e6 / fpsTarget && !pause)
     {
         glutPostRedisplay();
         timeLast = time;
@@ -200,6 +226,8 @@ static void draw(void)
 {
     updateUniforms();
     
+    glDisable(GL_BLEND);
+    glBindVertexArray(vao);
     for (int i = 1; i < 5; i++)
     {
         if (shader[i])
@@ -227,9 +255,23 @@ static void draw(void)
     setUniforms();
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
+    if (gui)
+    {
+        glEnable(GL_BLEND);
+        gltBeginDraw();
+        gltColor(1.0f, 1.0f, 1.0f, 1.0f);
+        gltDrawText2D(glStatusText, 10, ch - 22, 1);
+        gltDrawText2D(glControlText, 10, 10, 1);
+        gltDrawText2D(glFpsText, 10, 30, 1);
+        gltEndDraw();
+    }
+
     glutSwapBuffers();
+
+    printf("Frame %d\n", iFrame);
     iFrame++;
     if (iMouse[3] > 0) iMouse[3] = -iMouse[3];
+    
 }
 
 static void clearTexture(GLuint tex)
@@ -278,21 +320,49 @@ static void reset()
 
 static void key(unsigned char key, int x, int y)
 {
-   static int fs = 0;
-   switch(key)
-   {
-      case 27:
-         glutLeaveMainLoop();
-         break;
-      case 'f':
-         fs = !fs;
-         if(fs) glutFullScreen();
-         else glutReshapeWindow(width, height);
-         break;
-      case 'r':
-         reset();
-         break;
-   }
+    switch(key)
+    {
+        case 27:
+            glutLeaveMainLoop();
+            break;
+        case 'f':
+            fs = !fs;
+            if(fs) glutFullScreen();
+            else glutReshapeWindow(width, height);
+            break;
+        case 'r':
+            reset();
+            glutPostRedisplay();
+            break;
+        case 'g':
+            gui = !gui;
+            break;
+        case 'p':
+            pause = !pause;
+            break;
+        case 's':
+            glutPostRedisplay();
+            break;
+        case 'v':
+            vsync = !vsync;
+            glSwapInterval(-vsync);
+            break;
+        case '4':
+            fpsTarget -= 10;
+            break;
+        case '5':
+            fpsTarget -= 1;
+            break;
+        case '6':
+            fpsTarget = 60;
+            break;
+        case '7':
+            fpsTarget += 1;
+            break;
+        case '8':
+            fpsTarget += 10;
+            break;
+    }
 }
 
 static void mouse(int button, int state, int x, int y)
@@ -327,6 +397,7 @@ static void reshape(int w, int h)
     iResolution[1] = h;
     iResolution[2] = 1.;
     glViewport(0, 0, w, h);
+    gltViewport(w, h);
     
     for (int i = 0; i < 5; i++)
     {
@@ -408,7 +479,7 @@ static void compileShader(int shaderIndex, char* vs, char *fs)
 }
 
 #define MAX 100000
-static char *fname, *fs, *common;
+static char *fname, *fstext, *common;
 static char *names[] = {"/image.glsl", "/buffer_a.glsl", "/buffer_b.glsl", "/buffer_c.glsl", "/buffer_d.glsl"};
 static char *cname = "/common.glsl";
 void compileShaders(char *folderName)
@@ -439,14 +510,14 @@ void compileShaders(char *folderName)
         fprintf(stderr, "image shader is mandatory \"%s\"\n", fname);
         exit(1);
     }
-    fs = malloc(MAX);
-    fs[0] = 0;
-    strcat(fs, fs_header);
-    strcat(fs, common);
-    int cnt = fread(fs + fs_header_l + common_l, 1, MAX - fs_header_l - common_l - 1, f);
-    fs[fs_header_l + common_l + cnt] = 0;
+    fstext = malloc(MAX);
+    fstext[0] = 0;
+    strcat(fstext, fs_header);
+    strcat(fstext, common);
+    int cnt = fread(fstext + fs_header_l + common_l, 1, MAX - fs_header_l - common_l - 1, f);
+    fstext[fs_header_l + common_l + cnt] = 0;
     fclose(f);
-    compileShader(0, vs, fs);
+    compileShader(0, vs, fstext);
     
     for (int i = 1; i < 5; i++)
     {
@@ -456,25 +527,26 @@ void compileShaders(char *folderName)
         f = fopen(fname, "r");
         if (f)
         {
-            fs[0] = 0;
-            strcat(fs, fs_header);
-            strcat(fs, common);
-            int cnt = fread(fs + fs_header_l + common_l, 1, MAX - fs_header_l - common_l - 1, f);
-            fs[fs_header_l + common_l + cnt] = 0;
-            compileShader(i, vs, fs);
+            fstext[0] = 0;
+            strcat(fstext, fs_header);
+            strcat(fstext, common);
+            int cnt = fread(fstext + fs_header_l + common_l, 1, MAX - fs_header_l - common_l - 1, f);
+            fstext[fs_header_l + common_l + cnt] = 0;
+            compileShader(i, vs, fstext);
             fclose(f);
         }
     }
     
     free(common);
     free(fname);
-    free(fs);
+    free(fstext);
     
     printf("\nShaders loaded.\n%s:   %s\n%s:    Y\n%s: %s\n%s: %s\n%s: %s\n%s: %s\n\n", cname, common_l?"Y":"N", names[0], names[1], shader[1]?"Y":"N", names[2], shader[2]?"Y":"N", names[3], shader[3]?"Y":"N", names[4], shader[4]?"Y":"N");
 }
 
 static void GLAPIENTRY messageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam )
 {
+    if (id == 0x20071) return; // nvidia buffer info
     fprintf(stderr, "GLDebug message: source 0x%x, type 0x%x, id 0x%x, severity 0x%x: %s\n", source, type, id, severity, message);
 }
 
@@ -497,26 +569,28 @@ int main(int argc, char* argv[])
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(messageCallback, 0);
     
-    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     glSwapInterval(-vsync);
     
-    float verts[6][3] = {{-1,-1,0},{1,1,0},{-1,1,0},{-1,-1,0},{1,1,0},{1,-1,0}};
-
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
-
+    {
+        float verts[6][3] = {{-1,-1,0},{1,1,0},{-1,1,0},{-1,-1,0},{1,1,0},{1,-1,0}};
+        glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+    }
     glBindVertexArray(vao);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    GLenum dBuffers[1] = {GL_COLOR_ATTACHMENT0};
-    glDrawBuffers(1, dBuffers);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    {
+        GLenum dBuffers[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, dBuffers);
+    }
 
     if (argc < 2)
     {
@@ -524,6 +598,12 @@ int main(int argc, char* argv[])
         exit(1);
     }
     compileShaders(argv[1]);
+
+    gltInit();
+    glStatusText = gltCreateText();
+    glControlText = gltCreateText();
+    glFpsText = gltCreateText();
+    gltSetText(glControlText, stControlText);
 
     glutDisplayFunc(draw);
     glutReshapeFunc(reshape);
