@@ -31,6 +31,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         col = mix(colFront, colBack, hit / numLayers);
     }
 
-    col += .07 * pcg(vec3(fragCoord, iTime)).x;
+    col += .07 * hash31(vec3(fragCoord, iTime));
     fragColor = vec4(col, 1.);
 }

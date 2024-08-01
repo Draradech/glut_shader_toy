@@ -1,17 +1,65 @@
 // https://www.pcg-random.org/
-vec3 pcg(uvec3 v) {
-    v = v * 1664525u + 1013904223u;
-    v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
-    v ^= v >> 16u;
-    v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
-    return vec3(v) / float(0xffffffffu);
+uint pcg(uint v)
+{
+	uint state = v * 747796405u + 2891336453u;
+	uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+	return (word >> 22u) ^ word;
 }
 
-vec3 pcg(vec3 p) {return pcg(floatBitsToUint(p));}
-vec3 pcg(uvec2 p){return pcg(p.xyx);}
-vec3 pcg(vec2 p) {return pcg(floatBitsToUint(p));}
-vec3 pcg(uint p) {return pcg(uvec3(p));}
-vec3 pcg(float p){return pcg(floatBitsToUint(p));}
+uvec2 pcg2d(uvec2 v)
+{
+    v = v * 1664525u + 1013904223u;
+
+    v.x += v.y * 1664525u;
+    v.y += v.x * 1664525u;
+
+    v = v ^ (v>>16u);
+
+    v.x += v.y * 1664525u;
+    v.y += v.x * 1664525u;
+
+    v = v ^ (v>>16u);
+
+    return v;
+}
+
+// http://www.jcgt.org/published/0009/03/02/
+uvec3 pcg3d(uvec3 v) {
+
+    v = v * 1664525u + 1013904223u;
+
+    v.x += v.y*v.z;
+    v.y += v.z*v.x;
+    v.z += v.x*v.y;
+
+    v ^= v >> 16u;
+
+    v.x += v.y*v.z;
+    v.y += v.z*v.x;
+    v.z += v.x*v.y;
+
+    return v;
+}
+
+// http://www.jcgt.org/published/0009/03/02/
+uvec4 pcg4d(uvec4 v)
+{
+    v = v * 1664525u + 1013904223u;
+    
+    v.x += v.y*v.w;
+    v.y += v.z*v.x;
+    v.z += v.x*v.y;
+    v.w += v.y*v.z;
+    
+    v ^= v >> 16u;
+    
+    v.x += v.y*v.w;
+    v.y += v.z*v.x;
+    v.z += v.x*v.y;
+    v.w += v.y*v.z;
+    
+    return v;
+}
 
 // Integer Hash - I
 // - Inigo Quilez, Integer Hash - I, 2017
@@ -50,14 +98,30 @@ uint iqint3(uvec2 x)
     return n;
 }
 
+// Float versions with consistent naming scheme
+vec4  pcg44(vec4  p) {return  vec4( pcg4d( floatBitsToUint(p) ) ) / float(0xffffffffu);}
+vec3  pcg33(vec3  p) {return  vec3( pcg3d( floatBitsToUint(p) ) ) / float(0xffffffffu);}
+vec2  pcg22(vec2  p) {return  vec2( pcg2d( floatBitsToUint(p) ) ) / float(0xffffffffu);}
+float pcg11(float p) {return float(   pcg( floatBitsToUint(p) ) ) / float(0xffffffffu);}
 
-float hash(float v)
+vec3  iq33(vec3  p) {return  vec3( iqint2( floatBitsToUint(p) ) ) / float(0xffffffffu);}
+float iq21(vec2  p) {return float( iqint3( floatBitsToUint(p) ) ) / float(0xffffffffu);}
+float iq11(float p) {return float( iqint1( floatBitsToUint(p) ) ) / float(0xffffffffu);}
+
+// Decision here
+float hash11(float p)
 {
-    //return pcg(v).x;
-    return float(iqint1(floatBitsToUint(v))) / float(0xffffffffu);
+    //return pcg11(p);
+    return iq11(p);
 }
 
+float hash31(vec3 p)
+{
+    //return pcg33(p).x;
+    return iq33(p).x;
+}
 
+// Ocatave Noise 1D
 float octaveNoise1D(float v, float seed, float o)
 {
     float r = 0.;
@@ -70,8 +134,8 @@ float octaveNoise1D(float v, float seed, float o)
         float a = floor(l);
         float b = a + 1.;
         float f = fract(l);
-        float na = hash(a) / os;
-        float nb = hash(b) / os;
+        float na = hash11(a) / os;
+        float nb = hash11(b) / os;
         r += mix(na, nb, smoothstep(0., 1., f));
         os *= 2.;
     }
