@@ -123,6 +123,7 @@ static int vsync = 1;
 static int gui = 1;
 static int fs = 0;
 static int pauseDraw = 0;
+static int pauseOld = 0;
 static int cw = 0;
 static int ch = 0;
 static GLuint vao, vbo, fbo;
@@ -147,7 +148,6 @@ static void calcFps(int64_t time)
 {
     static int64_t timeOld, timeLast;
     static int frameCounter;
-    static int pauseOld;
 
     frameCounter++;
 
@@ -366,6 +366,7 @@ static void key(unsigned char key, int x, int y)
             break;
         case 'p':
             pauseDraw = !pauseDraw;
+            if (pauseDraw) pauseOld = 1;
             break;
         case 's':
             glutPostRedisplay();
