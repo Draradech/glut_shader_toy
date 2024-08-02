@@ -13,8 +13,8 @@
 
 static char *vs = ""
 "#version 330 core                                                       \n"
-"layout(location = 0) in vec3 p;                                         \n"
-"void main(){gl_Position = vec4(p.x, p.y, p.z, 1.0);}                    \n";
+"layout(location = 0) in vec2 p;                                         \n"
+"void main(){gl_Position = vec4(p, 0., 1.);}                             \n";
 
 static char *fs_header = ""
 "#version 330 core                                                       \n"
@@ -31,7 +31,7 @@ static char *fs_header = ""
 "layout(location =  9) uniform sampler2D iChannel2;                      \n"
 "layout(location = 10) uniform sampler2D iChannel3;                      \n"
 "layout(location =  0) out vec4 glut_shader_toy_out_color;               \n"
-"void mainImage(out vec4 fragColor, in vec2 fragCoord);                  \n"
+"void mainImage(out vec4, in vec2);                                      \n"
 "void main(){mainImage(glut_shader_toy_out_color, gl_FragCoord.xy);}     \n";
 
 #ifdef _WIN32
@@ -609,12 +609,12 @@ int main(int argc, char* argv[])
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     {
-        float verts[6][3] = {{-1,-1,0},{1,1,0},{-1,1,0},{-1,-1,0},{1,1,0},{1,-1,0}};
+        float verts[6][2] = {{-1,-1},{1,1},{-1,1},{-1,-1},{1,1},{1,-1}};
         glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
     }
     glBindVertexArray(vao);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
