@@ -1,3 +1,5 @@
+// ################### hash implementations ###################
+
 // https://www.pcg-random.org/
 uint pcg(uint v)
 {
@@ -98,7 +100,10 @@ uint iqint3(uvec2 x)
     return n;
 }
 
-// Float versions with consistent naming scheme
+
+
+// ################### float versions with consistent naming scheme ###################
+
 vec4  pcg44(vec4  p) {return  vec4( pcg4d( floatBitsToUint(p) ) ) / float(0xffffffffu);}
 vec3  pcg33(vec3  p) {return  vec3( pcg3d( floatBitsToUint(p) ) ) / float(0xffffffffu);}
 vec2  pcg22(vec2  p) {return  vec2( pcg2d( floatBitsToUint(p) ) ) / float(0xffffffffu);}
@@ -108,36 +113,44 @@ vec3  iq33(vec3  p) {return  vec3( iqint2( floatBitsToUint(p) ) ) / float(0xffff
 float iq21(vec2  p) {return float( iqint3( floatBitsToUint(p) ) ) / float(0xffffffffu);}
 float iq11(float p) {return float( iqint1( floatBitsToUint(p) ) ) / float(0xffffffffu);}
 
-// Decision here
+
+
+// ################### decide which hashes to use ###################
+
 float hash11(float p)
 {
-    //return pcg11(p);
-    return iq11(p);
+    //return pcg33(vec3(p)).x;
+    return pcg11(p);
+    //return iq11(p);
 }
 
 float hash31(vec3 p)
 {
-    //return pcg33(p).x;
-    return iq33(p).x;
+    return pcg33(p).x;
+    //return iq33(p).x;
 }
 
-// Ocatave Noise 1D
-float octaveNoise1D(float v, float seed, float o)
+
+
+// ################### functions using hashes ###################
+
+float octaveNoise1D(float pos, float seed, float octaves)
 {
-    float r = 0.;
-    float s = 0.;
-    float os = 1.;
-    for (float i = 0.; i < o; i++)
+    float result = 0.;
+    float divisor = 0.;
+    float octaveScale = 1.;
+    float offset = 63.949 * seed;
+    for (float i = 0.; i < octaves; i++)
     {
-        s += 1. / os;
-        float l = (v + 100. * seed) * os;
-        float a = floor(l);
-        float b = a + 1.;
-        float f = fract(l);
-        float na = hash11(a) / os;
-        float nb = hash11(b) / os;
-        r += mix(na, nb, smoothstep(0., 1., f));
-        os *= 2.;
+        divisor += 1. * octaveScale;
+        float posLeft = floor(pos + offset);
+        float posRight = posLeft + 1.;
+        float rightFactor = fract(pos + offset);
+        float noiseLeft = hash11(posLeft) * octaveScale;
+        float noiseRight = hash11(posRight) * octaveScale;
+        result += mix(noiseLeft, noiseRight, smoothstep(0., 1., rightFactor));
+        octaveScale *= .5;
+        pos *= 2.;
     }
-    return r / s;
+    return result / divisor;
 }
