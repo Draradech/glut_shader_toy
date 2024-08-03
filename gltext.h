@@ -1,3 +1,6 @@
+#define GLT_MANUAL_VIEWPORT
+#define GLT_HACK_MONOSPACE
+#define GLT_IMPLEMENTATION
 
 // Repository: https://github.com/vallentin/glText
 // License: https://github.com/vallentin/glText/blob/master/LICENSE.md
